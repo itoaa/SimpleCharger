@@ -20,6 +20,7 @@
 #include "sPWM.hpp"
 #include "sVolt.hpp"
 #include "sCurrent.hpp"
+#include "sOneWire.hpp"
 #include "Hardware.hpp"
 
 #include <stdio.h>
@@ -28,12 +29,13 @@ sGPIO green(GreenLedPport,GreenLedPin,1);
 sGPIO yelow(YellowLedPort, YellowLedPin,1);
 sGPIO red(RedLedPort,RedLedPin,1);
 
+sMegaTune MyMega(9600);
 
+OneWire MyOneWire(TemperaturPort,TemperaturPin);
 
 static void TaskCharger(void *pvParameters); // Main charger task
-
-
-
+static void TaskCom(void *pvParameters); // Main communication task
+static void TaskTemp(void *pvParameters); // Onewire temp task
 
 int main()
 {
@@ -49,7 +51,23 @@ int main()
 		xTaskCreate(
 			TaskCharger
 			,  (const portCHAR *)"ChargeTask" // Main charger task
-			,  296				//
+			,  290				//
+			,  NULL
+			,  3
+			,  NULL ); //
+
+		xTaskCreate(
+			TaskCom
+			,  (const portCHAR *)"ComTask" // Main charger task
+			,  190				//
+			,  NULL
+			,  3
+			,  NULL ); //
+
+		xTaskCreate(
+			TaskTemp
+			,  (const portCHAR *)"tempTask" // OneWire task
+			,  128				//
 			,  NULL
 			,  3
 			,  NULL ); //
@@ -60,61 +78,158 @@ int main()
 		}
 }
 
+static void TaskTemp(void *pvParameters) // Main charger task
+{
+	(void) pvParameters;
+	uint8_t type_s;
+	uint8_t data[12];
+	uint8_t addr[8];
+	uint8_t i;
+	float celsius;
+
+	if ( !MyOneWire.search(addr))
+	{
+		// No more addresses
+		MyOneWire.reset_search();
+		vTaskDelay( ( 250 / portTICK_PERIOD_MS ) );
+		return;
+	}
+	// the first ROM byte indicates which chip
+	switch (addr[0])
+	{
+		case 0x10:
+	      // DS18S20 or old DS1820
+	      type_s = 1;
+	      break;
+	    case 0x28:
+	      // DS18B20
+	      type_s = 0;
+	      break;
+	    case 0x22:
+	      // DS1822
+	      type_s = 0;
+	      break;
+	    default:
+	      return;
+	}
+
+    for(;;)
+    {
+    	  MyOneWire.reset();
+    	  MyOneWire.select(addr);
+    	  MyOneWire.write(0x44, 1);        // start conversion, with parasite power on at the end
+
+    	  vTaskDelay( ( 1000 / portTICK_PERIOD_MS ) );     // maybe 750ms is enough, maybe not
+
+    	  MyOneWire.reset();
+    	  MyOneWire.select(addr);
+    	  MyOneWire.write(0xBE);         // Read Scratchpad
+
+    	  for ( i = 0; i < 9; i++) {           // we need 9 bytes
+    	     data[i] = MyOneWire.read();
+    	  }
+    	  int16_t raw = (data[1] << 8) | data[0];
+    	  if (type_s) {
+    	    raw = raw << 3; // 9 bit resolution default
+    	    if (data[7] == 0x10) {
+    	      // "count remain" gives full 12 bit resolution
+    	      raw = (raw & 0xFFF0) + 12 - data[6];
+    	    }
+    	  } else {
+    	    uint8_t cfg = (data[4] & 0x60);
+    	    // at lower res, the low bits are undefined, so let's zero them
+    	    if (cfg == 0x00) raw = raw & ~7;  // 9 bit resolution, 93.75 ms
+    	    else if (cfg == 0x20) raw = raw & ~3; // 10 bit res, 187.5 ms
+    	    else if (cfg == 0x40) raw = raw & ~1; // 11 bit res, 375 ms
+    	    //// default is 12 bit resolution, 750 ms conversion time
+    	  }
+    	  celsius = (float)raw / 16.0;
+//    	  fahrenheit = celsius * 1.8 + 32.0;
+    	  MyMega.RPage.mosfetTemp = (int8_t)celsius;
+
+    	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
+    }
+}
+
+static void TaskCom(void *pvParameters) // Main charger task
+{
+	(void) pvParameters;
+    for(;;)
+    {
+		MyMega.processSerial();
+    	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
+    }
+}
+
 static void TaskCharger(void *pvParameters) // Main charger task
 {
 	(void) pvParameters;
-//    uint16_t IV,OV;
- //   uint16_t pot;
-//    int16_t IC,OC;
-//    uint16_t p = 100;
-    //    float IP,OP,v;
+
+	red.setHigh();
 
     Current outputCurrent(OutputCurrentPin,Current_Measure_type);
     outputCurrent.zeroAmpCallibrate();
+   	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
 
-    Current inputCurrent(7,1);
-   	vTaskDelay( ( 200 / portTICK_PERIOD_MS ) );			// Wait until everything has started up, and then calibrate for 0 amp
-   	inputCurrent.zeroAmpCallibrate();					// Calibrate as 0 amp. Charger will still draining some current
-   													 	// but to get efficiency value more realistic, we ignore static drain.
+    red.setHigh();
 
     sPWM MyPWM(pwmPort,pwmPin);
 
-    //	Volt driverVolt(Pin12V,201);
+    //	Volt driverVolt(Pin12V,201);				// May save memory to comment out
 
     Volt outputVolt(OutputVoltPin,55);
 	Volt inputVolt(InputVoltPin,65);
-
-	Volt potVolt(PC6,3000);
-	sMegaTune MyMega(9600);
-
+	Volt fetDriverVolt(Pin12V,202);
+	int8_t AmpOut;
+	uint8_t pwm = 0;
 	MyMega.pg1.MaxPWM = 0;
     for(;;)
     {
-    	green.setLow();
-//    	pot = potVolt.readVolt();
+    	if (MyMega.RPage.state == 0)
+    	{
+        	green.setLow();
+        	MyMega.RPage.mosfetDriverVolt = fetDriverVolt.readVolt();
+        	MyMega.RPage.OutputVolt = outputVolt.readVolt() ;
+        	AmpOut = (int8_t)(outputCurrent.readCurrent()/ 100);
+        	if (AmpOut < 0) AmpOut = 0 - AmpOut;		// Only positive Amp values on this charger.
+        	MyMega.RPage.OutputAmp = AmpOut;
+        	MyMega.RPage.InputVolt = inputVolt.readVolt() ;
+        	MyMega.RPage.InputAmp = (int8_t)(((MyMega.RPage.OutputVolt * MyMega.RPage.OutputAmp) / MyMega.RPage.InputVolt)*1.2);	// estimate input current.
 
-    	MyMega.RPage.OutputVolt = outputVolt.readVolt() ;
-    	MyMega.RPage.InputVolt = inputVolt.readVolt() ;
+        	// Check for errors (Later)
 
-    	MyMega.RPage.InputAmp = inputCurrent.readCurrent() / 100;
-    	MyMega.RPage.OutputAmp = outputCurrent.readCurrent() / 100;
+        	// Set charge current (with "soft start")
+
+        	do
+        	{
+        		AmpOut = (int8_t)(outputCurrent.readCurrent()/ 100);
+            	if (AmpOut < 0) AmpOut = 0 - AmpOut;		// Only positive Amp values on this charger.
+            	red.setLow();
+            	if ((AmpOut < MyMega.pg1.ChargeAmp)&&(pwm < 0xFF))
+        			pwm++;
+        		if ((AmpOut > MyMega.pg1.ChargeAmp)&&(pwm > 0x00))
+        			pwm--;
+        		MyMega.RPage.pw1 = pwm;
+        		MyPWM.setDuty(pwm);
+
+        	}while (AmpOut != MyMega.pg1.ChargeAmp);        // I_FAST is set now
+        	red.setHigh();
 
 
-    	if (MyMega.RPage.InputAmp < 0) MyMega.RPage.InputAmp = 0 - MyMega.RPage.InputAmp;
-    	if (MyMega.RPage.OutputAmp < 0) MyMega.RPage.OutputAmp = 0 - MyMega.RPage.OutputAmp;
+        	//   		MyPWM.setDuty(MyMega.pg1.MaxPWM);
+
+        	green.setHigh();
+
+        	vTaskDelay( ( 50 / portTICK_PERIOD_MS ) );
+
+    	}
+    	if (MyMega.RPage.state == 2)
+    	{
+
+    	}
 
 
-   		MyPWM.setDuty(MyMega.pg1.MaxPWM);
- //   	MyPWM.setDuty(p);
-    	OCR1A = MyMega.pg1.MaxPWM * 10;
-
-    	MyMega.processSerial();
-    	green.setHigh();
-
-    	vTaskDelay( ( 100 / portTICK_PERIOD_MS ) );
-
-
-   } // for loop ??
+    } // for loop ??
 
 
 }

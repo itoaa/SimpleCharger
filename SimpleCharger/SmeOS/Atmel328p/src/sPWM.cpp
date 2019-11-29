@@ -30,18 +30,34 @@ sPWM::sPWM(int port, int pin)						// port, 1 = PortB, 2 = PortC, 3 = portD
 
 void	sPWM::setDuty(double duty)
 {
-	if (pPort == 1)
+	if ((pPort == 1) and (pPin == PB1))
 	{
-//		set_input(DDRB,pPin);						// Set pin as input
+    	OCR1A = duty;
 	}
-	if (pPort == 2)
+	if ((pPort == 1) and (pPin == PB2))
 	{
-//		set_input(DDRC,pPin);						// Set pin as input
+    	OCR1B = duty;
 	}
-	if (pPort == 3)
+	if ((pPort == 1) and (pPin == PB3))
 	{
-//		set_input(DDRD,pPin);						// Set pin as input
+    	OCR2A = duty;
 	}
+
+
+	if ((pPort == 3) and (pPin == PD3))
+	{
+    	OCR2B = duty;
+	}
+	if ((pPort == 3) and (pPin == PD5))
+	{
+    	OCR0B = duty;
+	}
+	if ((pPort == 3) and (pPin == PD6))
+	{
+    	OCR0A = duty;
+	}
+
+
 }
 
 void	sPWM::start()

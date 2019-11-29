@@ -46,7 +46,7 @@ struct __attribute__((packed,aligned(1))) RPageVarsStruct
 //const String CodeString = "evReg_Proto";          // String sent to TuningStudio
 #define CodeString  "Simple charger 1.0     "       // String sent to TuningStudio, use F() macro to store in progmem, not in sram.
 
-#define CodeRev  "MSII s-Charger 1.0  "             // Code Revition to send to Megatune.
+#define CodeRev  "MSII s-Charger B-1  "             // Code Revition to send to Megatune.
 #define RTPS  20                                    // Real time data page size
 #define PG1S  82                                    // Eprom Page1 size
 
