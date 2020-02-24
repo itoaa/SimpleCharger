@@ -12,7 +12,6 @@
 #include "task.h"
 #include "queue.h"
 #include "semphr.h"
-
 // SmeOS include files
 
 #include "sGPIO.hpp"
@@ -22,6 +21,7 @@
 #include "sCurrent.hpp"
 #include "sOneWire.hpp"
 #include "Hardware.hpp"
+#include "eeprom.h"
 
 #include <stdio.h>
 
@@ -33,16 +33,25 @@ sMegaTune MyMega(9600);
 
 OneWire MyOneWire(TemperaturPort,TemperaturPin);
 
+Current outputCurrent(OutputCurrentPin,Current_Measure_type);
+
+sPWM MyPWM(pwmPort,pwmPin);
+
+//	Volt driverVolt(Pin12V,201);				// May save memory to comment out
+
+Volt outputVolt(OutputVoltPin,55);
+Volt inputVolt(InputVoltPin,65);
+Volt fetDriverVolt(Pin12V,202);
+
+
+
 static void TaskCharger(void *pvParameters); // Main charger task
 static void TaskCom(void *pvParameters); // Main communication task
 static void TaskTemp(void *pvParameters); // Onewire temp task
 
 int main()
 {
-//		sSerial MySerial(9600);
-//	    puts("Starting Serial...");
-//	    puts("Speed is 9600...");
-	   // Setup LED:s
+		// Turn off LED:s
 		red.setHigh();
 		green.setHigh();
 		yelow.setHigh();
@@ -165,21 +174,10 @@ static void TaskCharger(void *pvParameters) // Main charger task
 {
 	(void) pvParameters;
 
-	red.setHigh();
+	vTaskDelay( ( 200 / portTICK_PERIOD_MS ) );		// Wait 200mS before zeroing the current
+	outputCurrent.zeroAmpCallibrate();
+	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
 
-    Current outputCurrent(OutputCurrentPin,Current_Measure_type);
-    outputCurrent.zeroAmpCallibrate();
-   	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
-
-    red.setHigh();
-
-    sPWM MyPWM(pwmPort,pwmPin);
-
-    //	Volt driverVolt(Pin12V,201);				// May save memory to comment out
-
-    Volt outputVolt(OutputVoltPin,55);
-	Volt inputVolt(InputVoltPin,65);
-	Volt fetDriverVolt(Pin12V,202);
 	int8_t AmpOut;
 	uint8_t pwm = 0;
 	MyMega.pg1.MaxPWM = 0;
@@ -197,23 +195,28 @@ static void TaskCharger(void *pvParameters) // Main charger task
         	MyMega.RPage.InputAmp = (int8_t)(((MyMega.RPage.OutputVolt * MyMega.RPage.OutputAmp) / MyMega.RPage.InputVolt)*1.2);	// estimate input current.
 
         	// Check for errors (Later)
-
         	// Set charge current (with "soft start")
-
         	do
         	{
         		AmpOut = (int8_t)(outputCurrent.readCurrent()/ 100);
             	if (AmpOut < 0) AmpOut = 0 - AmpOut;		// Only positive Amp values on this charger.
+            	MyMega.RPage.OutputAmp = AmpOut;
             	red.setLow();
-            	if ((AmpOut < MyMega.pg1.ChargeAmp)&&(pwm < 0xFF))
+            	if ( (AmpOut < MyMega.pg1.ChargeAmp) && (pwm < 254) )
+            	{
         			pwm++;
-        		if ((AmpOut > MyMega.pg1.ChargeAmp)&&(pwm > 0x00))
+                	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
+            	}
+        		if ( (AmpOut > MyMega.pg1.ChargeAmp) && (pwm > 0x00) )
         			pwm--;
         		MyMega.RPage.pw1 = pwm;
         		MyPWM.setDuty(pwm);
+            	vTaskDelay( ( 5 / portTICK_PERIOD_MS ) );
 
-        	}while (AmpOut != MyMega.pg1.ChargeAmp);        // I_FAST is set now
-        	red.setHigh();
+//        	}while (AmpOut != MyMega.pg1.ChargeAmp);        // I_FAST is set now
+        	}while ( (AmpOut <= MyMega.pg1.ChargeAmp-2) or (AmpOut >= MyMega.pg1.ChargeAmp +2) );        // I_FAST is set now
+
+        		red.setHigh();
 
 
         	//   		MyPWM.setDuty(MyMega.pg1.MaxPWM);
