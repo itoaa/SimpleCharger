@@ -31,11 +31,10 @@
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
 #include <avr/wdt.h>
-
+#include <time.h> 		// Needed for system_tick();
 #include "FreeRTOS.h"
 #include "task.h"
 
-#include "time.h" 		// Needed for system_tick();
 
 #if defined (portQUAD_RAM) || defined (portMEGA_RAM)
 #include "ext_ram.h"	// Needed for extRAMcheck();
