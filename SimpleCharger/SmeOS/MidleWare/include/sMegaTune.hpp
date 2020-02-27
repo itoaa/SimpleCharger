@@ -9,10 +9,11 @@
 #define SMEOS_MIDLEWARE_INCLUDE_SMEGATUNE_HPP_
 
 #include <stdint.h>
-#include "sSerial.hpp"
 #include <FreeRTOS.h>
 #include <avr/io.h>
 #include <task.h>
+#include "sSerial.hpp"
+#include "sEEPROM.hpp"
 
 
 // Define user typed input stored in EEPROM.
@@ -104,7 +105,7 @@ struct __attribute__((packed,aligned(1))) RPageVarsStruct
 #define CodeRev  "Smedby simple Charger Beta 1"		// Code Revition to send to Megatune. Title Bar in tunerStudio
 #define RTPS  12                                    // Real time data page size
 #define PG1S  81                                    // Eprom Page1 size
-
+#define PG1Offset 0									// Offset in EEPROM where pg1 is stored
 
 
 
@@ -118,22 +119,24 @@ public:
 private:
 	int	sec;
 	sSerial MySerial;
-
+	sEEPROM MyEEPROM;
 
 //  int _BatteryVoltage;
 //  String _serialCommand;
 
   public:
 	sMegaTune(int);							// Setup serial port speed for MegaTune communication.
-	void send_Sec(int);                        // Send number of seconds passed
-  void send_Rev(char*);                      // Send code revision.
-  void send_EpromVar(char *pg1);             // Send EEprom variables.
-  void get_EpromVar(char *pg1);              // Get EEprom variables.
-  void send_RPage();              // Send realtime data
+	void send_Sec(int);						// Send number of seconds passed
+	void send_Rev(char*);					// Send code revision.
+	void send_EpromVar(char *pg1);			// Send EEprom variables.
+	void get_EpromVar(char *pg1);			// Get EEprom variables.
+	void burn_EpromVars();					// Burn pg1 to EEPROM
+	void load_EpromVars();					// Load pg1-vars from EEPROM, only done at startup.
+	void send_RPage();						// Send realtime data
 //  void send_RPage(uint8_t *rPage);              // Send realtime data
 
-  void processSerial();
-  bool dataRecived();
+	void processSerial();
+	bool dataRecived();
 
 };
 

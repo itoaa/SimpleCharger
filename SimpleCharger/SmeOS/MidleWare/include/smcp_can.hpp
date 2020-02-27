@@ -27,7 +27,7 @@
 #include "mcp_can_dfs.hpp"
 #include <util/delay.h>
 #include "avr/io.h"
-#include "fix.h"
+//#include "fix.h"
 
 #define MAX_CHAR_IN_MESSAGE 8
 

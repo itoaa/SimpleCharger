@@ -6,13 +6,13 @@
  */
 
 #include <sMegaTune.hpp>
-#include "sSerial.hpp"
 
 // Konstruktor av MegatuenSerial. Öppna serieporten i rätt hastighet.
 sMegaTune::sMegaTune(int BaudRate)
 {
 	MySerial.init(9600);
     sec = 0;
+    load_EpromVars();
 }
 
 
@@ -60,8 +60,8 @@ void sMegaTune::send_Sec(int sec)
 }
 
 // Subrutine to send latest value to serialport/MegaTune.
-// Parameter includ all variables
 void sMegaTune::send_RPage()
+// Parameter include all variables
 //void sMegaTune::send_RPage(uint8_t *RPage)
 
 {
@@ -108,7 +108,7 @@ void sMegaTune::processSerial()
         get_EpromVar((char*)&pg1);
         break;
       case 'B':									//	jump to flash burner routine and burn pg1 constant values in RAM into flash
-//        storage.saveConfig(pg1);
+    	  burn_EpromVars();						// Burn pg1 to EEPROM
     	  break;
       case 'V':									//	"V" = sends constants (pg1) as an array of bytes
     	  send_EpromVar((char*)&pg1);
@@ -122,5 +122,35 @@ void sMegaTune::processSerial()
 bool sMegaTune::dataRecived()
 {
 	return MySerial.dataRecived();         		// Se if there is someting avalible on serialport
+}
+
+// Subrutine to store all static data (pg1) to EEPROM
+void sMegaTune::burn_EpromVars()
+// Save pg1 to EEPROM
+{
+	int i;
+	char *temppointer;
+	vTaskSuspendAll();									// Maybe not needed
+	for (i=0; i < PG1S; i++)     						// i = 0 till page1size
+	{
+		temppointer = (char*)&pg1 + i;					// temppointer pekar på nästa position i pg1pointer
+		MyEEPROM.writeByte(i+PG1Offset,*temppointer);	// Write specifyed byte from struct in to EEPROM
+	}
+	xTaskResumeAll();
+}
+
+// Subrutine to load all static data (pg1) from EEPROM
+void sMegaTune::load_EpromVars()
+// Load pg1 from EEPROM
+{
+	int i;
+	char *temppointer;
+	vTaskSuspendAll();									// Maybe not needed
+	for (i=0; i < PG1S; i++)     						// i = 0 till page1size
+	{
+		temppointer = (char*)&pg1 + i;					// temppointer pekar på nästa position i pg1 pointer
+		*temppointer = MyEEPROM.readByte(i+PG1Offset); 	// read value from EEPROM directly into struct.
+	}
+	xTaskResumeAll();
 }
 

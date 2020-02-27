@@ -34,7 +34,7 @@
 //#include <Arduino.h>
 #include <stdint.h>
 #include <avr/io.h>
-#include "fix.h"
+//#include "fix.h"
 #include "sSPI.hpp"
 #include <inttypes.h>
 

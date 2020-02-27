@@ -29,29 +29,21 @@ void SPIClass::begin()
   uint8_t sreg = SREG;
   noInterrupts(); // Protect from a scheduler and prevent transactionBegin
   if (!initialized) {
-
-    // Set SS to high so a connected chip will be "deselected" by default
- //   uint8_t port = digitalPinToPort(SS);
-
-//	  uint8_t port = PORTD;
-
-	  //    uint8_t bit = digitalPinToBitMask(SS);
-     uint8_t bit = _BV(2); // = PD2 0b00000100
-//    volatile uint8_t *reg = portModeRegister(port);
-    volatile uint8_t *reg = &DDRD;
+	  // Set SS to high so a connected chip will be "deselected" by default
+      uint8_t bit = _BV(2); // = PD2 0b00000100
+      volatile uint8_t *reg = &DDRD;
 
     // if the SS pin is not already configured as an output
     // then set it high (to enable the internal pull-up resistor)
     if(!(*reg & bit)){
-  //    digitalWrite(SS, HIGH);
 		setSSHigh(); // Quickfix
     }
 
     // When the SS pin is set as OUTPUT, it can be used as
     // a general purpose output port (it doesn't influence
     // SPI operations).
- //   pinMode(SS, OUTPUT);
 	setSSPin(); // dirty fix
+
 	PORTB |= (1<<PINB2);
 
     // Warning: if the SS pin ever becomes a LOW INPUT then SPI
