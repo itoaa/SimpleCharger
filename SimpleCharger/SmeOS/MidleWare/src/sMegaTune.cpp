@@ -8,7 +8,7 @@
 #include <sMegaTune.hpp>
 
 extern RPageVarsStruct RPage;
-extern Page1DataStruct pg1;
+//extern Page1DataStruct pg1;
 
 
 // Konstruktor av MegatuenSerial. Öppna serieporten i rätt hastighet.
@@ -17,8 +17,7 @@ sMegaTune::sMegaTune(int BaudRate)
 	MySerial.init(9600);
     sec = 0;
  //   load_EpromVars();
-    pg1.ChargeAmp = 4;
-    pg1p = (char*)&pg1;
+    GlobalDB.pg1.ChargeAmp = 4;
 }
 
 
@@ -29,28 +28,22 @@ void sMegaTune::send_EpromVar()
 }*/
 {
   int i;
-  char* temppointer;
-  vTaskSuspendAll();
   for (i=0; i < PG1S; i++)     // i = 0 till page1size
   {
-	  temppointer = (char*)&pg1 + i;        // temppointer pekar på nästa position i pg1pointer
-	  MySerial.putChar(*temppointer);     // Skicka värdet på den positionen
+	  vTaskSuspendAll();
+	  MySerial.putChar(GlobalDB.getpg1Data(i));     // Skicka värdet på den positionen
+	  xTaskResumeAll();
   }
-  xTaskResumeAll();
 }
 
 
-void sMegaTune::get_EpromVar(char* s)
+void sMegaTune::get_EpromVar()
 {
-  pg1.MaxChargeVolt = 6;
-
 	uint8_t pos;
-  uint8_t* temppointer;
-  vTaskSuspendAll();
-  pos = MySerial.getChar();						// First get the offset to byte that should be changed
-  temppointer = (uint8_t*)&pg1 + pos;      				// Point temppointer to correct place in page1_var (Variable pointer + offsett)
-  *temppointer = MySerial.getChar(); 			// Put the value in the position that temppointer points to.
-  xTaskResumeAll();
+	vTaskSuspendAll();
+	pos = MySerial.getChar();						// First get the offset to byte that should be changed
+	GlobalDB.setpg1Data(pos,MySerial.getChar());    // Put the value in the position that temppointer points to.
+	xTaskResumeAll();
 
 }
 
@@ -116,7 +109,7 @@ void sMegaTune::processSerial()
         send_Rev((char*)"001");					//	Send serial protocol version. 001 for compatible mode (need change ??)
          break;
       case 'W':									//	"W"+<offset>+<newbyte> = receives new constant byte value and stores in 'offset' location in pg1
-        get_EpromVar((char*)&pg1);
+        get_EpromVar();
         break;
       case 'X':									//	"X"+<offset>+<count>+<newbyte>+<newbyte>.... receives series of new data bytes
 //        get_EpromVar((char*) &pg1);

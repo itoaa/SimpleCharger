@@ -14,7 +14,7 @@
 #include <task.h>
 #include "sSerial.hpp"
 #include "sEEPROM.hpp"
-
+#include "sDB.hpp"
 
 // Define user typed input stored in EEPROM.
 // It is only one large strukt of data
@@ -120,7 +120,6 @@ private:
 	int	sec;
 	sSerial MySerial;
 	sEEPROM MyEEPROM;
-	char* pg1p;
 
 //  int _BatteryVoltage;
 //  String _serialCommand;
@@ -130,7 +129,7 @@ private:
 	void send_Sec(int);						// Send number of seconds passed
 	void send_Rev(char*);					// Send code revision.
 	void send_EpromVar();			// Send EEprom variables.
-	void get_EpromVar(char* s);			// Get EEprom variables.
+	void get_EpromVar();			// Get EEprom variables.
 	void burn_EpromVars();					// Burn pg1 to EEPROM
 	void load_EpromVars();					// Load pg1-vars from EEPROM, only done at startup.
 	void send_RPage();						// Send realtime data
