@@ -43,6 +43,8 @@ Volt outputVolt(OutputVoltPin,55);
 Volt inputVolt(InputVoltPin,65);
 Volt fetDriverVolt(Pin12V,202);
 
+RPageVarsStruct RPage;
+Page1DataStruct pg1;
 
 
 static void TaskCharger(void *pvParameters); // Main charger task
@@ -124,7 +126,9 @@ static void TaskTemp(void *pvParameters) // Main charger task
 
     for(;;)
     {
-    	  MyOneWire.reset();
+
+
+    	MyOneWire.reset();
     	  MyOneWire.select(addr);
     	  MyOneWire.write(0x44, 1);        // start conversion, with parasite power on at the end
 
@@ -154,7 +158,7 @@ static void TaskTemp(void *pvParameters) // Main charger task
     	  }
     	  celsius = (float)raw / 16.0;
 //    	  fahrenheit = celsius * 1.8 + 32.0;
-    	  MyMega.RPage.mosfetTemp = (int8_t)celsius;
+    	  RPage.mosfetTemp = (int8_t)celsius;
 
     	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
     }
@@ -180,19 +184,19 @@ static void TaskCharger(void *pvParameters) // Main charger task
 
 	int8_t AmpOut;
 	uint8_t pwm = 0;
-	MyMega.pg1.MaxPWM = 0;
+	pg1.MaxPWM = 0;
     for(;;)
     {
-    	if (MyMega.RPage.state == 0)
+    	if (RPage.state == 0)
     	{
         	green.setLow();
-        	MyMega.RPage.mosfetDriverVolt = fetDriverVolt.readVolt();
-        	MyMega.RPage.OutputVolt = outputVolt.readVolt() ;
+        	RPage.mosfetDriverVolt = fetDriverVolt.readVolt();
+        	RPage.OutputVolt = outputVolt.readVolt() ;
         	AmpOut = (int8_t)(outputCurrent.readCurrent()/ 100);
         	if (AmpOut < 0) AmpOut = 0 - AmpOut;		// Only positive Amp values on this charger.
-        	MyMega.RPage.OutputAmp = AmpOut;
-        	MyMega.RPage.InputVolt = inputVolt.readVolt() ;
-        	MyMega.RPage.InputAmp = (int8_t)(((MyMega.RPage.OutputVolt * MyMega.RPage.OutputAmp) / MyMega.RPage.InputVolt)*1.2);	// estimate input current.
+        	RPage.OutputAmp = AmpOut;
+        	RPage.InputVolt = inputVolt.readVolt() ;
+        	RPage.InputAmp = (int8_t)(((RPage.OutputVolt * RPage.OutputAmp) / RPage.InputVolt)*1.2);	// estimate input current.
 
         	// Check for errors (Later)
         	// Set charge current (with "soft start")
@@ -200,21 +204,21 @@ static void TaskCharger(void *pvParameters) // Main charger task
         	{
         		AmpOut = (int8_t)(outputCurrent.readCurrent()/ 100);
             	if (AmpOut < 0) AmpOut = 0 - AmpOut;		// Only positive Amp values on this charger.
-            	MyMega.RPage.OutputAmp = AmpOut;
+            	RPage.OutputAmp = AmpOut;
             	red.setLow();
-            	if ( (AmpOut < MyMega.pg1.ChargeAmp) && (pwm < 254) )
+            	if ( (AmpOut < pg1.ChargeAmp) && (pwm < 254) )
             	{
         			pwm++;
                 	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
             	}
-        		if ( (AmpOut > MyMega.pg1.ChargeAmp) && (pwm > 0x00) )
+        		if ( (AmpOut > pg1.ChargeAmp) && (pwm > 0x00) )
         			pwm--;
-        		MyMega.RPage.pw1 = pwm;
+        		RPage.pw1 = pwm;
         		MyPWM.setDuty(pwm);
             	vTaskDelay( ( 5 / portTICK_PERIOD_MS ) );
 
 //        	}while (AmpOut != MyMega.pg1.ChargeAmp);        // I_FAST is set now
-        	}while ( (AmpOut <= MyMega.pg1.ChargeAmp-2) or (AmpOut >= MyMega.pg1.ChargeAmp +2) );        // I_FAST is set now
+        	}while ( (AmpOut <= pg1.ChargeAmp-2) or (AmpOut >= pg1.ChargeAmp +2) );        // I_FAST is set now
 
         		red.setHigh();
 
@@ -226,7 +230,7 @@ static void TaskCharger(void *pvParameters) // Main charger task
         	vTaskDelay( ( 50 / portTICK_PERIOD_MS ) );
 
     	}
-    	if (MyMega.RPage.state == 2)
+    	if (RPage.state == 2)
     	{
 
     	}

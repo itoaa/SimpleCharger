@@ -113,13 +113,14 @@ struct __attribute__((packed,aligned(1))) RPageVarsStruct
 class sMegaTune
 {
 public:
-	RPageVarsStruct RPage;
-	Page1DataStruct pg1;
+//	RPageVarsStruct RPage;
+//	Page1DataStruct pg1;
 
 private:
 	int	sec;
 	sSerial MySerial;
 	sEEPROM MyEEPROM;
+	char* pg1p;
 
 //  int _BatteryVoltage;
 //  String _serialCommand;
@@ -128,8 +129,8 @@ private:
 	sMegaTune(int);							// Setup serial port speed for MegaTune communication.
 	void send_Sec(int);						// Send number of seconds passed
 	void send_Rev(char*);					// Send code revision.
-	void send_EpromVar(char *pg1);			// Send EEprom variables.
-	void get_EpromVar(char *pg1);			// Get EEprom variables.
+	void send_EpromVar();			// Send EEprom variables.
+	void get_EpromVar(char* s);			// Get EEprom variables.
 	void burn_EpromVars();					// Burn pg1 to EEPROM
 	void load_EpromVars();					// Load pg1-vars from EEPROM, only done at startup.
 	void send_RPage();						// Send realtime data

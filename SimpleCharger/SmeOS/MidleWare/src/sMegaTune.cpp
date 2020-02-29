@@ -7,41 +7,55 @@
 
 #include <sMegaTune.hpp>
 
+extern RPageVarsStruct RPage;
+extern Page1DataStruct pg1;
+
+
 // Konstruktor av MegatuenSerial. Öppna serieporten i rätt hastighet.
 sMegaTune::sMegaTune(int BaudRate)
 {
 	MySerial.init(9600);
     sec = 0;
-    load_EpromVars();
+ //   load_EpromVars();
+    pg1.ChargeAmp = 4;
+    pg1p = (char*)&pg1;
 }
 
 
-void sMegaTune::send_EpromVar(char* pg1)
+void sMegaTune::send_EpromVar()
 /*{
   // print all EProm variables in MegaTune style to serial port.
   // Need to match MegaTune ini file.
 }*/
 {
   int i;
-  char *temppointer;
+  char* temppointer;
   vTaskSuspendAll();
   for (i=0; i < PG1S; i++)     // i = 0 till page1size
   {
-	  temppointer = pg1 + i;        // temppointer pekar på nästa position i pg1pointer
+	  temppointer = (char*)&pg1 + i;        // temppointer pekar på nästa position i pg1pointer
 	  MySerial.putChar(*temppointer);     // Skicka värdet på den positionen
   }
   xTaskResumeAll();
 }
 
-void sMegaTune::get_EpromVar(char* pg1)
-{
-  uint8_t pos=0;
-  char* temppointer;
 
+void sMegaTune::get_EpromVar(char* s)
+{
+  pg1.MaxChargeVolt = 6;
+
+	uint8_t pos;
+  uint8_t* temppointer;
+  vTaskSuspendAll();
   pos = MySerial.getChar();						// First get the offset to byte that should be changed
-  temppointer = pg1 + pos;      				// Point temppointer to correct place in page1_var (Variable pointer + offsett)
+  temppointer = (uint8_t*)&pg1 + pos;      				// Point temppointer to correct place in page1_var (Variable pointer + offsett)
   *temppointer = MySerial.getChar(); 			// Put the value in the position that temppointer points to.
+  xTaskResumeAll();
+
 }
+
+
+
 void sMegaTune::send_Rev(char* rev)
 {
 	vTaskSuspendAll();
@@ -105,13 +119,13 @@ void sMegaTune::processSerial()
         get_EpromVar((char*)&pg1);
         break;
       case 'X':									//	"X"+<offset>+<count>+<newbyte>+<newbyte>.... receives series of new data bytes
-        get_EpromVar((char*)&pg1);
+//        get_EpromVar((char*) &pg1);
         break;
       case 'B':									//	jump to flash burner routine and burn pg1 constant values in RAM into flash
-    	  burn_EpromVars();						// Burn pg1 to EEPROM
+    	//  burn_EpromVars();						// Burn pg1 to EEPROM
     	  break;
       case 'V':									//	"V" = sends constants (pg1) as an array of bytes
-    	  send_EpromVar((char*)&pg1);
+    	  send_EpromVar();
         break;
 
       default: break;
@@ -123,7 +137,7 @@ bool sMegaTune::dataRecived()
 {
 	return MySerial.dataRecived();         		// Se if there is someting avalible on serialport
 }
-
+/*
 // Subrutine to store all static data (pg1) to EEPROM
 void sMegaTune::burn_EpromVars()
 // Save pg1 to EEPROM
@@ -154,3 +168,4 @@ void sMegaTune::load_EpromVars()
 	xTaskResumeAll();
 }
 
+*/
