@@ -5,9 +5,9 @@
  *      Author: ola
  */
 
-// #define ChargeTask
+#define ChargeTask
 #define ComTask
-// #define TempTask
+#define TempTask
 
 /* FreeRtos scheduler include files. */
 #include <sMegaTune.hpp>
@@ -36,9 +36,9 @@ sGPIO debug1(1,PB5,1);				// Arduino UNO led
 
 sMegaTune MyMega(9600);
 
-//OneWire MyOneWire(TemperaturPort,TemperaturPin);
+OneWire MyOneWire(TemperaturPort,TemperaturPin);
 
-//  Current outputCurrent(OutputCurrentPin,Current_Measure_type);
+Current outputCurrent(OutputCurrentPin,Current_Measure_type);
 
 sPWM MyPWM(pwmPort,pwmPin);
 
@@ -98,7 +98,7 @@ int main()
 		{
 		}
 }
-/*
+# ifdef TempTask
 static void TaskTemp(void *pvParameters) // Main charger task
 {
 	(void) pvParameters;
@@ -168,12 +168,12 @@ static void TaskTemp(void *pvParameters) // Main charger task
     	  }
     	  celsius = (float)raw / 16.0;
 //    	  fahrenheit = celsius * 1.8 + 32.0;
-    	  RPage.mosfetTemp = (int8_t)celsius;
+    	  GlobalDB.rtPage.mosfetTemp = (int8_t)celsius;
 
     	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
     }
 }
-*/
+# endif
 static void TaskCom(void *pvParameters) // Main charger task
 {
 	(void) pvParameters;
