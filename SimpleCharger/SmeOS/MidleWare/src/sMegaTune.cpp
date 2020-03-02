@@ -21,17 +21,23 @@ void sMegaTune::send_EpromVar()
 }*/
 {
 	int i;
+	vTaskSuspendAll();									// Maybe not needed
 	for (i=0; i < PG1S; i++)     // i = 0 till page1size
 	{
 		MySerial.putChar(GlobalDB.getpg1Data(i));     // Skicka värdet på den positionen
 	}
+	xTaskResumeAll();
 }
 
 void sMegaTune::get_EpromVar()
 {
 	uint8_t pos;
+	vTaskSuspendAll();								// Maybe not needed
+
 	pos = MySerial.getChar();						// First get the offset to byte that should be changed
 	GlobalDB.setpg1Data(pos,MySerial.getChar());    // Put the value in the right position in GlobalDB.
+
+	xTaskResumeAll();
 }
 
 void sMegaTune::send_Rev(char* rev)
@@ -67,7 +73,7 @@ void sMegaTune::processSerial()
         send_Sec(GlobalDB.rtPage.seconds);			//	Test communications - echo back SECL (timer, 0 to 255) as a byte
         break;
       case 'C':
-    	  send_Sec(GlobalDB.rtPage.seconds);		//	Same as "c" (Old or ver 001??)
+    	send_Sec(GlobalDB.rtPage.seconds);			//	Same as "c" (Old or ver 001??)
         break;
       case 'S':
         send_Rev((char*)CodeRev);					// Send firmware version to display in title bar in TunerStudio (not in ini file??)
@@ -82,7 +88,8 @@ void sMegaTune::processSerial()
         get_EpromVar();
         break;
       case 'X':										//	"X"+<offset>+<count>+<newbyte>+<newbyte>.... receives series of new data bytes
-        break;
+    	  send_EpromVar();
+    	  break;
       case 'B':										//	jump to flash burner routine and burn pg1 constant values in RAM into flash
     	  GlobalDB.savePG1();						//  Save (burn) pg1 to EEPROM
     	  break;

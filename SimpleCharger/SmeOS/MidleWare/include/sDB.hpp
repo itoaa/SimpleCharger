@@ -8,6 +8,8 @@
 #ifndef SIMPLECHARGER_SMEOS_MIDLEWARE_INCLUDE_SDB_HPP_
 #define SIMPLECHARGER_SMEOS_MIDLEWARE_INCLUDE_SDB_HPP_
 
+#include <FreeRTOS.h>
+#include <task.h>
 #include <stdint.h>
 #include <sEEPROM.hpp>
 
