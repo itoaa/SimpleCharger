@@ -22,7 +22,7 @@ uint8_t sDB::getpg1Data(uint8_t offset)
 void sDB::setpg1Data(uint8_t offset, uint8_t data)
 {
 	uint8_t* temppointer;
-	temppointer = (uint8_t*)&rtPage + offset;
+	temppointer = (uint8_t*)&pg1 + offset;
 	*temppointer = data;
 }
 
@@ -37,7 +37,7 @@ uint8_t sDB::getrtpData(uint8_t offset)
 void sDB::setrtpData(uint8_t offset, uint8_t data)
 {
 	uint8_t* temppointer;
-	temppointer = (uint8_t*)&pg1 + offset;
+	temppointer = (uint8_t*)&rtPage + offset;
 	*temppointer = data;
 }
 
@@ -46,24 +46,24 @@ void sDB::savePG1()
 {
 	int i;
 	char *temppointer;
-//	vTaskSuspendAll();									// Maybe not needed
+	vTaskSuspendAll();									// Maybe not needed
 	for (i=0; i < PG1S; i++)     						// i = 0 till page1size
 	{
 		temppointer = (char*)&pg1 + i;					// temppointer pekar på nästa position i pg1pointer
 		MyEEPROM.writeByte(i+PG1Offset,*temppointer);	// Write specifyed byte from struct in to EEPROM
 	}
-//	xTaskResumeAll();
+	xTaskResumeAll();
 }
 void sDB::loadPG1()
 // Load pg1 from EEPROM
 {
 	int i;
 	char *temppointer;
-//	vTaskSuspendAll();									// Maybe not needed
+	vTaskSuspendAll();									// Maybe not needed
 	for (i=0; i < PG1S; i++)     						// i = 0 till page1size
 	{
 		temppointer = (char*)&pg1 + i;					// temppointer pekar på nästa position i pg1 pointer
 		*temppointer = MyEEPROM.readByte(i+PG1Offset); 	// read value from EEPROM directly into struct.
 	}
-//	xTaskResumeAll();
+	xTaskResumeAll();
 }

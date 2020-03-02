@@ -5,7 +5,7 @@
  *      Author: ola
  */
 
-//#define ChargeTask
+// #define ChargeTask
 #define ComTask
 // #define TempTask
 
@@ -31,12 +31,12 @@
 
 sGPIO green(GreenLedPport,GreenLedPin,1);
 sGPIO yelow(YellowLedPort, YellowLedPin,1);
- sGPIO red(RedLedPort,RedLedPin,1);				// Charger red led
+sGPIO red(RedLedPort,RedLedPin,1);				// Charger red led
 sGPIO debug1(1,PB5,1);				// Arduino UNO led
 
 sMegaTune MyMega(9600);
 
-OneWire MyOneWire(TemperaturPort,TemperaturPin);
+//OneWire MyOneWire(TemperaturPort,TemperaturPin);
 
 //  Current outputCurrent(OutputCurrentPin,Current_Measure_type);
 
@@ -70,7 +70,7 @@ int main()
 		xTaskCreate(
 			TaskCharger
 			,  (const portCHAR *)"ChargeTask" // Main charger task
-			,  290				//
+			,  294				//
 			,  NULL
 			,  3
 			,  NULL ); //
@@ -79,7 +79,7 @@ int main()
 		xTaskCreate(
 			TaskCom
 			,  (const portCHAR *)"ComTask" // Main charger task
-			,  180				//
+			,  130				//
 			,  NULL
 			,  3
 			,  NULL ); //
@@ -181,7 +181,7 @@ static void TaskCom(void *pvParameters) // Main charger task
     {
 		debug1.setLow();
 
-    	GlobalDB.rtPage.process1Stack = uxTaskGetStackHighWaterMark( NULL );
+   // 	GlobalDB.rtPage.process1Stack = uxTaskGetStackHighWaterMark( NULL );
     	MyMega.processSerial();
     	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
 
