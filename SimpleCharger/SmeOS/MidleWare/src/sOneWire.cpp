@@ -160,10 +160,6 @@ void OneWire::begin(uint8_t port, uint8_t pin)
 	lPort = port;
 	lPin = pin;
 	pOneWire.init(lPort,lPin,0);
-
-//	pinMode(pin, INPUT);
-//	bitmask = PIN_TO_BITMASK(pin);
-//	baseReg = PIN_TO_BASEREG(pin);
 #if ONEWIRE_SEARCH
 	reset_search();
 #endif

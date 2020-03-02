@@ -10,6 +10,7 @@
 
 #ifdef __AVR_ATmega328P__
 	#include <avr/io.h>
+//#include <avr/iom328p.h>
 #endif /* __AVR_ATmega328P__ */
 
 // Define for witch hardware to compile
@@ -25,28 +26,28 @@
 // Define what pins and ports to use on the MPU
 // in reality, PD6 is really just '6'
 
-	const int  InputVoltPin  		= PC2;				// Pin used to measure Battery-volt PC2 = A2
+	const int  InputVoltPin  		= PINC2;				// Pin used to measure Battery-volt PC2 = A2
 	const int  InputVoltPort  		= 2;				// Port used to measure Battery-volt
-	const int  OutputCurrentPin 	= PC0;				// Pin used to measure Motor-volt PC0 = A0
+	const int  OutputCurrentPin 	= PINC0;				// Pin used to measure Motor-volt PC0 = A0
 	const int  OutputCurrentPort 	= 2;				// Port used to measure Motor-volt
-	const int  OutputVoltPin 		= PC1;				// Pin used  to measure output-volt PC1 = A1
+	const int  OutputVoltPin 		= PINC1;				// Pin used  to measure output-volt PC1 = A1
 	const int  OutputVoltPort 		= 2;				// Port used to measure output-volt
-	const int  Pin12V 				= PC3;				// Pin used to measure 12 volt rail PC3 = A3
+	const int  Pin12V 				= PINC3;				// Pin used to measure 12 volt rail PC3 = A3
 	const int  Port12V 				= 2;				// Port used to measure 12 volt rail
-	const int  TemperaturPin 		= PD7;				// Pin used to measure mosfet-temperatur PD7 = D7
+	const int  TemperaturPin 		= PIND7;				// Pin used to measure mosfet-temperatur PD7 = D7
 	const int  TemperaturPort 		= 3;				// Port used to measure mosfet-temperatur
-	const int  pwmPin 				= PB1;				// Pin used for PWM-charge-output PB1 = D9
+	const int  pwmPin 				= PINB1;				// Pin used for PWM-charge-output PB1 = D9
 	const int  pwmPort 				= 1;				// Port used for PWM-charge-output
 
 	const int  Temp_Measure_type 	= 2;				// Type 1 = NTC-resistor, 2 = DS1820 temp sensor.
 	const int  Current_Measure_type = 2;				// Type 1 = 5A, 2 = 20A, 3 = 30A (Defines witch type of current sense sensor is used.
-	const int  RedLedPin	 		= PD5;				// Red LED pin
+	const int  RedLedPin	 		= PIND5;				// Red LED pin
 	const int  RedLedPort 			= 3;				// Red LED port
-	const int  YellowLedPin			= PD4;				// Yellow LED pin
+	const int  YellowLedPin			= PIND4;				// Yellow LED pin
 	const int  YellowLedPort		= 3;				// Yellow LED port
-	const int  GreenLedPin 			= PD3;				// Green LED pin
+	const int  GreenLedPin 			= PIND3;				// Green LED pin
 	const int  GreenLedPport		= 3;				// Green LED port
-	const int  ButtonPin 			= PD2;				// Button pin
+	const int  ButtonPin 			= PIND2;				// Button pin
 	const int  ButtonPort 			= 3;				// Button port
 
 #if Serial == 1

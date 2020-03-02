@@ -9,15 +9,49 @@
 #define SIMPLECHARGER_SMEOS_MIDLEWARE_INCLUDE_SDB_HPP_
 
 #include <stdint.h>
+#include <sEEPROM.hpp>
+
+#define RTPS  16                                    // Real time data page size
+#define PG1S  81                                    // Eprom Page1 size
+#define PG1Offset 0									// Offset in EEPROM where pg1 is stored
 
 class sDB {
 public:
 	sDB();
 
-	void get123();
-	int variab;
+	uint8_t getpg1Data(uint8_t);
+	void setpg1Data(uint8_t offset, uint8_t data);
+
+	uint8_t getrtpData(uint8_t);
+	void setrtpData(uint8_t offset, uint8_t data);
+
+	void savePG1();
+	void loadPG1();
 private:
-	 struct __attribute__((packed,aligned(1))) RPageVarsStruct
+	sEEPROM MyEEPROM;
+
+	struct __attribute__((packed,aligned(1))) RPageVarsStruct
+	{
+	    uint8_t		seconds;					// Seconds
+	    uint8_t		pw1;						// Pulse with (PWM) in %
+	    uint8_t		freq;						// pwm out frequensy / 1000 (khz)
+	    int8_t		batteryTemp;				// Battery temperatur (-128-128)
+	    int8_t		InputAmp;					// input Current
+	    int8_t		InputVolt;					// Input Volt
+	    int8_t		OutputAmp;					// Output Current
+	    int8_t    	OutputVolt;					// Output Volt
+	    int8_t    	mosfetTemp;					// MosFet teperatur (-128 to 128 grader C).
+	    int8_t    	extraTemp;					// Extra temperatur sensor.
+	    uint8_t    	mosfetDriverVolt;			// Mosfet driver volt / 10 .(130 = 13V)
+	    uint8_t		state;						// Charger state (1, 2, 3 or 4);
+	    uint8_t		process1Stack;				// Free stack for process 1
+	    uint8_t		process2Stack;				// Free stack for process 2
+	    uint8_t		process3Stack;				// Free stack for process 3
+	    uint8_t		process4Stack;				// Free stack for process 4
+
+	};
+
+	struct __attribute__((packed,aligned(1))) Page1Datastruct
 	{
 	    uint8_t ChargeAmp;
 	    uint8_t MaxChargeAmp;
@@ -81,13 +115,9 @@ private:
 	   uint16_t	s4MaxTime;
 	   uint8_t	s4MinTime;
 	};
-
 public:
-
-	 uint8_t getpg1Data(uint8_t);
-	 void setpg1Data(uint8_t offset, uint8_t data);
-	 RPageVarsStruct pg1;
-
+	Page1Datastruct pg1;
+	RPageVarsStruct rtPage;
 };
 
 extern sDB GlobalDB;

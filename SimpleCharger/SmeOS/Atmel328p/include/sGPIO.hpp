@@ -72,7 +72,7 @@ class sGPIO
 	sGPIO(uint8_t ddr, uint8_t pin, uint8_t state);			// pin and state. state, 1 = output, 0 = input
 	sGPIO();
 
-	void init(uint8_t ddr, uint8_t pin, uint8_t state);					// use if using default constructor, pin and state. state, 1 = output, 0 = input
+	void 	init(uint8_t ddr, uint8_t pin, uint8_t state);					// use if using default constructor, pin and state. state, 1 = output, 0 = input
 	void	setInput();										// Set pin as input pin
 	void	setOutput();									// Set pin as output
 	void	setHigh();										// Set pin high

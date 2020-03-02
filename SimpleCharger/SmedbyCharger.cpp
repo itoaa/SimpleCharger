@@ -5,6 +5,10 @@
  *      Author: ola
  */
 
+//#define ChargeTask
+#define ComTask
+// #define TempTask
+
 /* FreeRtos scheduler include files. */
 #include <sMegaTune.hpp>
 #include "FreeRTOS.h"
@@ -27,13 +31,14 @@
 
 sGPIO green(GreenLedPport,GreenLedPin,1);
 sGPIO yelow(YellowLedPort, YellowLedPin,1);
-sGPIO red(RedLedPort,RedLedPin,1);
+ sGPIO red(RedLedPort,RedLedPin,1);				// Charger red led
+sGPIO debug1(1,PB5,1);				// Arduino UNO led
 
 sMegaTune MyMega(9600);
 
 OneWire MyOneWire(TemperaturPort,TemperaturPin);
 
-Current outputCurrent(OutputCurrentPin,Current_Measure_type);
+//  Current outputCurrent(OutputCurrentPin,Current_Measure_type);
 
 sPWM MyPWM(pwmPort,pwmPin);
 
@@ -43,13 +48,15 @@ Volt outputVolt(OutputVoltPin,55);
 Volt inputVolt(InputVoltPin,65);
 Volt fetDriverVolt(Pin12V,202);
 
-RPageVarsStruct RPage;
-Page1DataStruct pg1;
-
-
+#ifdef ChargeTask
 static void TaskCharger(void *pvParameters); // Main charger task
+# endif
+#ifdef ComTask
 static void TaskCom(void *pvParameters); // Main communication task
+# endif
+# ifdef TempTask
 static void TaskTemp(void *pvParameters); // Onewire temp task
+# endif
 
 int main()
 {
@@ -57,8 +64,9 @@ int main()
 		red.setHigh();
 		green.setHigh();
 		yelow.setHigh();
+		debug1.setHigh();
 
-
+# ifdef ChargeTask
 		xTaskCreate(
 			TaskCharger
 			,  (const portCHAR *)"ChargeTask" // Main charger task
@@ -66,15 +74,17 @@ int main()
 			,  NULL
 			,  3
 			,  NULL ); //
-
+# endif
+# ifdef ComTask
 		xTaskCreate(
 			TaskCom
 			,  (const portCHAR *)"ComTask" // Main charger task
-			,  190				//
+			,  180				//
 			,  NULL
 			,  3
 			,  NULL ); //
-
+# endif
+# ifdef TempTask
 		xTaskCreate(
 			TaskTemp
 			,  (const portCHAR *)"tempTask" // OneWire task
@@ -82,13 +92,13 @@ int main()
 			,  NULL
 			,  3
 			,  NULL ); //
-
+# endif
 		vTaskStartScheduler();
 		while (1)
 		{
 		}
 }
-
+/*
 static void TaskTemp(void *pvParameters) // Main charger task
 {
 	(void) pvParameters;
@@ -163,15 +173,23 @@ static void TaskTemp(void *pvParameters) // Main charger task
     	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
     }
 }
-
+*/
 static void TaskCom(void *pvParameters) // Main charger task
 {
 	(void) pvParameters;
     for(;;)
     {
-		MyMega.processSerial();
+		debug1.setLow();
+
+    	GlobalDB.rtPage.process1Stack = uxTaskGetStackHighWaterMark( NULL );
+    	MyMega.processSerial();
+    	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
+
+    	debug1.setHigh();
+
     	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
     }
+
 }
 
 static void TaskCharger(void *pvParameters) // Main charger task
@@ -179,64 +197,67 @@ static void TaskCharger(void *pvParameters) // Main charger task
 	(void) pvParameters;
 
 	vTaskDelay( ( 200 / portTICK_PERIOD_MS ) );		// Wait 200mS before zeroing the current
-	outputCurrent.zeroAmpCallibrate();
+//	outputCurrent.zeroAmpCallibrate();
 	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
 
 	int8_t AmpOut;
-	uint8_t pwm = 0;
-	pg1.MaxPWM = 0;
+
     for(;;)
     {
-    	if (RPage.state == 0)
+//		GlobalDB.rtPage.process2Stack = uxTaskGetStackHighWaterMark( NULL );
+    	if (GlobalDB.rtPage.state == 0)
     	{
         	green.setLow();
-        	RPage.mosfetDriverVolt = fetDriverVolt.readVolt();
-        	RPage.OutputVolt = outputVolt.readVolt() ;
-        	AmpOut = (int8_t)(outputCurrent.readCurrent()/ 100);
-        	if (AmpOut < 0) AmpOut = 0 - AmpOut;		// Only positive Amp values on this charger.
-        	RPage.OutputAmp = AmpOut;
-        	RPage.InputVolt = inputVolt.readVolt() ;
-        	RPage.InputAmp = (int8_t)(((RPage.OutputVolt * RPage.OutputAmp) / RPage.InputVolt)*1.2);	// estimate input current.
+
+
+        	GlobalDB.rtPage.mosfetDriverVolt = fetDriverVolt.readVolt();
+        	GlobalDB.rtPage.OutputVolt = outputVolt.readVolt() ;
+//        	AmpOut = (int8_t)(outputCurrent.readCurrent()/ 100);
+//        	if (AmpOut < 0) AmpOut = 0 - AmpOut;		// Only positive Amp values on this charger.
+        	GlobalDB.rtPage.OutputAmp = AmpOut;
+        	GlobalDB.rtPage.InputVolt = inputVolt.readVolt() ;
+        	GlobalDB.rtPage.InputAmp = (int8_t)(((GlobalDB.rtPage.OutputVolt * GlobalDB.rtPage.OutputAmp) / GlobalDB.rtPage.InputVolt)*1.2);	// estimate input current.
+red.setLow();
+vTaskDelay( ( 50 / portTICK_PERIOD_MS ) );
+
 
         	// Check for errors (Later)
         	// Set charge current (with "soft start")
+/*
         	do
         	{
-        		AmpOut = (int8_t)(outputCurrent.readCurrent()/ 100);
+//        		AmpOut = (int8_t)(outputCurrent.readCurrent()/ 100);
             	if (AmpOut < 0) AmpOut = 0 - AmpOut;		// Only positive Amp values on this charger.
-            	RPage.OutputAmp = AmpOut;
+            	GlobalDB.rtPage.OutputAmp = AmpOut;
             	red.setLow();
-            	if ( (AmpOut < pg1.ChargeAmp) && (pwm < 254) )
+            	if ( (AmpOut < GlobalDB.pg1.ChargeAmp) && (pwm < 254) )
             	{
         			pwm++;
                 	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
             	}
-        		if ( (AmpOut > pg1.ChargeAmp) && (pwm > 0x00) )
+        		if ( (AmpOut > GlobalDB.pg1.ChargeAmp) && (pwm > 0x00) )
         			pwm--;
-        		RPage.pw1 = pwm;
+        		GlobalDB.rtPage.pw1 = pwm;
         		MyPWM.setDuty(pwm);
             	vTaskDelay( ( 5 / portTICK_PERIOD_MS ) );
 
 //        	}while (AmpOut != MyMega.pg1.ChargeAmp);        // I_FAST is set now
-        	}while ( (AmpOut <= pg1.ChargeAmp-2) or (AmpOut >= pg1.ChargeAmp +2) );        // I_FAST is set now
-
-        		red.setHigh();
-
-
+        	}while ( (AmpOut <= GlobalDB.pg1.ChargeAmp-2) or (AmpOut >= GlobalDB.pg1.ChargeAmp +2) );        // I_FAST is set now
+*/
+       		red.setHigh();
         	//   		MyPWM.setDuty(MyMega.pg1.MaxPWM);
-
         	green.setHigh();
-
         	vTaskDelay( ( 50 / portTICK_PERIOD_MS ) );
-
     	}
-    	if (RPage.state == 2)
+    	if (GlobalDB.rtPage.state == 2)
     	{
 
     	}
 
-
+    	vTaskDelay( ( 50 / portTICK_PERIOD_MS ) );
     } // for loop ??
 
 
 }
+
+
