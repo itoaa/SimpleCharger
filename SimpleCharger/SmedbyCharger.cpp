@@ -70,7 +70,7 @@ int main()
 		xTaskCreate(
 			TaskCharger
 			,  (const portCHAR *)"ChargeTask" // Main charger task
-			,  294				//
+			,  160				//
 			,  NULL
 			,  3
 			,  NULL ); //
@@ -79,7 +79,7 @@ int main()
 		xTaskCreate(
 			TaskCom
 			,  (const portCHAR *)"ComTask" // Main charger task
-			,  130				//
+			,  100				//
 			,  NULL
 			,  3
 			,  NULL ); //
@@ -181,7 +181,7 @@ static void TaskCom(void *pvParameters) // Main charger task
     {
 		debug1.setLow();
 
-   // 	GlobalDB.rtPage.process1Stack = uxTaskGetStackHighWaterMark( NULL );
+    	GlobalDB.rtPage.process1Stack = uxTaskGetStackHighWaterMark( NULL );
     	MyMega.processSerial();
     	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
 
@@ -204,10 +204,10 @@ static void TaskCharger(void *pvParameters) // Main charger task
 
     for(;;)
     {
-//		GlobalDB.rtPage.process2Stack = uxTaskGetStackHighWaterMark( NULL );
     	if (GlobalDB.rtPage.state == 0)
     	{
-        	green.setLow();
+
+    		green.setLow();
 
 
         	GlobalDB.rtPage.mosfetDriverVolt = fetDriverVolt.readVolt();
@@ -218,7 +218,8 @@ static void TaskCharger(void *pvParameters) // Main charger task
         	GlobalDB.rtPage.InputVolt = inputVolt.readVolt() ;
         	GlobalDB.rtPage.InputAmp = (int8_t)(((GlobalDB.rtPage.OutputVolt * GlobalDB.rtPage.OutputAmp) / GlobalDB.rtPage.InputVolt)*1.2);	// estimate input current.
 red.setLow();
-vTaskDelay( ( 50 / portTICK_PERIOD_MS ) );
+
+//vTaskDelay( ( 50 / portTICK_PERIOD_MS ) );
 
 
         	// Check for errors (Later)
@@ -246,8 +247,11 @@ vTaskDelay( ( 50 / portTICK_PERIOD_MS ) );
 */
        		red.setHigh();
         	//   		MyPWM.setDuty(MyMega.pg1.MaxPWM);
-        	green.setHigh();
-        	vTaskDelay( ( 50 / portTICK_PERIOD_MS ) );
+
+       		green.setHigh();
+       		GlobalDB.rtPage.process2Stack = uxTaskGetStackHighWaterMark( NULL );
+
+       		vTaskDelay( ( 50 / portTICK_PERIOD_MS ) );
     	}
     	if (GlobalDB.rtPage.state == 2)
     	{
