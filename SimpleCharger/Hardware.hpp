@@ -52,7 +52,7 @@
 
 #if Serial == 1
 // Serialport settings
-#define cBaudRate  38400
+#define cBaudRate  115200
 #endif // Serial = 1
 
 #endif	// SmedbyCharger11 = 1
@@ -128,7 +128,7 @@
 
 #if Serial == 1
 // Serialport settings
-#define cBaudRate  9600
+#define cBaudRate  115200
 #endif // Serial = 1
 
 #endif	// DCC = 1

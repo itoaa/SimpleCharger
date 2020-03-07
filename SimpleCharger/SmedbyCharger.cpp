@@ -70,7 +70,7 @@ int main()
 		xTaskCreate(
 			TaskCharger
 			,  (const portCHAR *)"ChargeTask" // Main charger task
-			,  160				//
+			,  145				//
 			,  NULL
 			,  3
 			,  NULL ); //
@@ -79,7 +79,7 @@ int main()
 		xTaskCreate(
 			TaskCom
 			,  (const portCHAR *)"ComTask" // Main charger task
-			,  100				//
+			,  118				//
 			,  NULL
 			,  3
 			,  NULL ); //
@@ -88,7 +88,7 @@ int main()
 		xTaskCreate(
 			TaskTemp
 			,  (const portCHAR *)"tempTask" // OneWire task
-			,  128				//
+			,  120				//
 			,  NULL
 			,  3
 			,  NULL ); //
@@ -142,6 +142,9 @@ static void TaskTemp(void *pvParameters) // Main charger task
     	  MyOneWire.select(addr);
     	  MyOneWire.write(0x44, 1);        // start conversion, with parasite power on at the end
 
+    	  GlobalDB.rtPage.process3Stack = uxTaskGetStackHighWaterMark( NULL );
+
+    	  debug1.switchState();
     	  vTaskDelay( ( 1000 / portTICK_PERIOD_MS ) );     // maybe 750ms is enough, maybe not
 
     	  MyOneWire.reset();
@@ -170,6 +173,8 @@ static void TaskTemp(void *pvParameters) // Main charger task
 //    	  fahrenheit = celsius * 1.8 + 32.0;
     	  GlobalDB.rtPage.mosfetTemp = (int8_t)celsius;
 
+    	  GlobalDB.rtPage.process3Stack = uxTaskGetStackHighWaterMark( NULL );
+
     	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
     }
 }
@@ -179,13 +184,12 @@ static void TaskCom(void *pvParameters) // Main charger task
 	(void) pvParameters;
     for(;;)
     {
-		debug1.setLow();
 
-    	GlobalDB.rtPage.process1Stack = uxTaskGetStackHighWaterMark( NULL );
     	MyMega.processSerial();
+    	GlobalDB.rtPage.process1Stack = uxTaskGetStackHighWaterMark( NULL );
+
     	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
 
-    	debug1.setHigh();
 
     	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
     }
@@ -197,10 +201,11 @@ static void TaskCharger(void *pvParameters) // Main charger task
 	(void) pvParameters;
 
 	vTaskDelay( ( 200 / portTICK_PERIOD_MS ) );		// Wait 200mS before zeroing the current
-//	outputCurrent.zeroAmpCallibrate();
+	outputCurrent.zeroAmpCallibrate();
 	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
 
-	int8_t AmpOut;
+	int8_t AmpOut = 0;
+	int pwm = 0;
 
     for(;;)
     {
@@ -209,11 +214,10 @@ static void TaskCharger(void *pvParameters) // Main charger task
 
     		green.setLow();
 
-
         	GlobalDB.rtPage.mosfetDriverVolt = fetDriverVolt.readVolt();
         	GlobalDB.rtPage.OutputVolt = outputVolt.readVolt() ;
-//        	AmpOut = (int8_t)(outputCurrent.readCurrent()/ 100);
-//        	if (AmpOut < 0) AmpOut = 0 - AmpOut;		// Only positive Amp values on this charger.
+        	AmpOut = (int8_t)(outputCurrent.readCurrent()/ 100);
+        	if (AmpOut < 0) AmpOut = 0 - AmpOut;		// Only positive Amp values on this charger.
         	GlobalDB.rtPage.OutputAmp = AmpOut;
         	GlobalDB.rtPage.InputVolt = inputVolt.readVolt() ;
         	GlobalDB.rtPage.InputAmp = (int8_t)(((GlobalDB.rtPage.OutputVolt * GlobalDB.rtPage.OutputAmp) / GlobalDB.rtPage.InputVolt)*1.2);	// estimate input current.
@@ -224,7 +228,7 @@ red.setLow();
 
         	// Check for errors (Later)
         	// Set charge current (with "soft start")
-/*
+
         	do
         	{
 //        		AmpOut = (int8_t)(outputCurrent.readCurrent()/ 100);
@@ -243,8 +247,9 @@ red.setLow();
             	vTaskDelay( ( 5 / portTICK_PERIOD_MS ) );
 
 //        	}while (AmpOut != MyMega.pg1.ChargeAmp);        // I_FAST is set now
-        	}while ( (AmpOut <= GlobalDB.pg1.ChargeAmp-2) or (AmpOut >= GlobalDB.pg1.ChargeAmp +2) );        // I_FAST is set now
-*/
+//        	}while ( (AmpOut <= GlobalDB.pg1.ChargeAmp-2) or (AmpOut >= GlobalDB.pg1.ChargeAmp +2) );        // I_FAST is set now
+    	}while ( 1 == 2 );
+
        		red.setHigh();
         	//   		MyPWM.setDuty(MyMega.pg1.MaxPWM);
 
