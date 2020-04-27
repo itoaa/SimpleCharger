@@ -8,7 +8,7 @@
 #define ChargeT					// Enable ChargerTask. The task that makes the charger do what parameters say, and not burn up in the process
 #define ComT					// Enable ComTask. The task that communicate with the out side world, without interfering.
 #define TempT					// Enable TemTask. The task that only measure temp and update global db :-)
-#define	AutoChargerT			// Enable AutoChargerTask. The task that make the charger work without external control.
+// #define	AutoChargerT			// Enable AutoChargerTask. The task that make the charger work without external control.
 
 /* FreeRtos scheduler include files. */
 #include <sMegaTune.hpp>
@@ -66,8 +66,6 @@ static void AutoChargerTask(void *pvParameters); // Onewire temp task
 static void readAllValues();
 static void setPWM();
 static int Errors();
-static bool OutputAmpInRange();
-static bool noTomeOut(int milliSec);
 
 
 int main()
@@ -235,6 +233,10 @@ static void ChargerTask(void *pvParameters) // Main charger task
 	vTaskDelay( ( 100 / portTICK_PERIOD_MS ) );
 
 	// Reset the charger
+//	red.setLow();											// Turn on red LED. Ome board need this for enabling mosfet driver.
+//	yelow.setLow();
+	//green.setLow();
+
 
     for(;;)													// Ring charger task infinite
     {
@@ -245,35 +247,13 @@ static void ChargerTask(void *pvParameters) // Main charger task
     		readAllValues();								// Read all Values, in/out volt, mosfet volt, amp ...
 
     		setPWM();										// Find right PWM value, for correct current or volt level
+    		green.setHigh();								// Charge task is going to sleep
+    		vTaskDelay( ( 5 / portTICK_PERIOD_MS ) );
 
-    		//vTaskDelay( ( 50 / portTICK_PERIOD_MS ) );
-        	do
-        	{
-            	vTaskDelay( ( 5 / portTICK_PERIOD_MS ) );
-
-//        	}while (AmpOut != MyMega.pg1.ChargeAmp);        // I_FAST is set now
-//        	}while ( (AmpOut <= GlobalDB.pg1.ChargeAmp-2) or (AmpOut >= GlobalDB.pg1.ChargeAmp +2) );        // I_FAST is set now
-    	}while ( 1 == 2 );
-
-       		red.setHigh();
-        	//   		MyPWM.setDuty(MyMega.pg1.MaxPWM);
-
-       		green.setHigh();
-       		GlobalDB.rtPage.process2Stack = uxTaskGetStackHighWaterMark( NULL );
-
-       		vTaskDelay( ( 50 / portTICK_PERIOD_MS ) );
-    	}
-    	if (GlobalDB.rtPage.state == 2)
-    	{
-
-    	}
-
-    	vTaskDelay( ( 50 / portTICK_PERIOD_MS ) );
-    } // for loop ??
-
-
+    	} // for loop ??
+    }
 }
-
+# ifdef AutoChargerT
 static void AutoChargerTask(void *pvParameters) // The task that make the charger autonomous
 {
 	// This task makes the charger work on its own, without outside control. Good for simple battery chargers and when communication with head unit is lost.
@@ -285,7 +265,7 @@ static void AutoChargerTask(void *pvParameters) // The task that make the charge
     	// Make the charger work without external input
     }
 }
-
+# endif
 
 static void readAllValues()
 {
@@ -293,11 +273,11 @@ static void readAllValues()
 
 	GlobalDB.rtPage.mosfetDriverVolt = fetDriverVolt.readVolt();
 	GlobalDB.rtPage.OutputVolt = outputVolt.readVolt() ;
-	AmpOut = (int8_t)(outputCurrent.readCurrent()/ 100);
-	if (AmpOut < 0) AmpOut = 0 - AmpOut;		// Only positive Amp values on this charger.
-	GlobalDB.rtPage.OutputAmp = AmpOut;
-	GlobalDB.rtPage.InputVolt = inputVolt.readVolt() ;
-	GlobalDB.rtPage.InputAmp = (int8_t)(((GlobalDB.rtPage.OutputVolt * GlobalDB.rtPage.OutputAmp) / GlobalDB.rtPage.InputVolt)*1.2);	// estimate input current.
+	AmpOut = (int8_t)(outputCurrent.readCurrent()/ 100);				// tunerstudio is getting mA / 100 = Amp / 10 (amps with one decimal in integer format)
+	if (AmpOut < 0) AmpOut = 0 - AmpOut;								// Only positive Amp values on this charger. It don not mater which way de measuring device is connected.
+	GlobalDB.rtPage.OutputAmp = AmpOut;									// Update globalDb with amp value
+	GlobalDB.rtPage.InputVolt = inputVolt.readVolt() ;					// Update globalDB with Input volt value
+	GlobalDB.rtPage.InputAmp = (int8_t)( ( (GlobalDB.rtPage.OutputVolt * GlobalDB.rtPage.OutputAmp) / GlobalDB.rtPage.InputVolt) * 1.2);	// estimate input current. 20% more current than 100% efficient charger
 
 }
 
@@ -305,7 +285,7 @@ static void setPWM()
 {
 	int mAmpOut = 0;
 	int pwm = 0;
-	red.setLow();											// Charger is finding right PWM value, = red LED on.
+	yelow.setLow();											// Charger is finding right PWM value, = yelow LED on.
 
 	if (GlobalDB.rtPage.state == ChargerStateConstantAmp)	// If charger is in constant current mode
 	{
@@ -313,7 +293,7 @@ static void setPWM()
 		if (mAmpOut < 0) mAmpOut = 0 - mAmpOut;				// Only positive Amp values on this charger.
 		GlobalDB.rtPage.OutputAmp = mAmpOut / 100;			// devide by 100 here to get mA to A / 10 = we only whant Amp with one decimal.
 		red.setLow();										// Trying to find charge current
-		while ( !OutputAmpInRange() and noTomeOut(10))
+		while ( !(mAmpOut == GlobalDB.pg1.ChargeAmp) )
 		{
 			if ( (mAmpOut < GlobalDB.pg1.ChargeAmp) && (pwm < 254) )
 			{
@@ -325,8 +305,8 @@ static void setPWM()
 			}
 			GlobalDB.rtPage.pw1 = pwm;
 			MyPWM.setDuty(pwm);
-
-			}
+		}
+		yelow.setHigh();										// Current found = yelow LED off
 	}
 }
 
@@ -335,14 +315,4 @@ static int Errors()
 	return (0);
 }
 
-static bool OutputAmpInRange()
-{
-	return (0);
-}
-
-static bool noTomeOut(int timeoutms)
-{
-	//if curent ms > startms + timeoutms ....
-	return (0);
-}
 
