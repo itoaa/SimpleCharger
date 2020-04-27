@@ -10,6 +10,7 @@ sDB GlobalDB;
 
 sDB::sDB() {
 	    loadPG1();
+	    GlobalDB.rtPage.state = ChargerStateMonitor;
 }
 
 uint8_t sDB::getpg1Data(uint8_t offset)

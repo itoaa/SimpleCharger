@@ -17,6 +17,11 @@
 #define PG1S  81                                    // Eprom Page1 size
 #define PG1Offset 0									// Offset in EEPROM where pg1 is stored
 
+// Charger states
+#define	ChargerStateMonitor			0b00000000
+#define ChargerStateConstantVolt	0b00000001
+#define ChargerStateConstantAmp		0b00000010
+
 class sDB {
 public:
 	sDB();
@@ -45,12 +50,11 @@ private:
 	    int8_t    	mosfetTemp;					// MosFet teperatur (-128 to 128 grader C).
 	    int8_t    	extraTemp;					// Extra temperatur sensor.
 	    uint8_t    	mosfetDriverVolt;			// Mosfet driver volt / 10 .(130 = 13V)
-	    uint8_t		state;						// Charger state (1, 2, 3 or 4);
+	    uint8_t		state;						// Charger state (1, 2, 3 or 4) ... need to move to "AutoCHarge RTP"
 	    uint8_t		process1Stack;				// Free stack for process 1
 	    uint8_t		process2Stack;				// Free stack for process 2
 	    uint8_t		process3Stack;				// Free stack for process 3
 	    uint8_t		process4Stack;				// Free stack for process 4
-
 	};
 
 	struct __attribute__((packed,aligned(1))) Page1Datastruct

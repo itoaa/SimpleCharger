@@ -5,9 +5,10 @@
  *      Author: ola
  */
 
-#define ChargeTask
-#define ComTask
-#define TempTask
+#define ChargeT					// Enable ChargerTask. The task that makes the charger do what parameters say, and not burn up in the process
+#define ComT					// Enable ComTask. The task that communicate with the out side world, without interfering.
+#define TempT					// Enable TemTask. The task that only measure temp and update global db :-)
+#define	AutoChargerT			// Enable AutoChargerTask. The task that make the charger work without external control.
 
 /* FreeRtos scheduler include files. */
 #include <sMegaTune.hpp>
@@ -28,6 +29,7 @@
 #include "eeprom.h"
 
 #include <stdio.h>
+#include <stdbool.h>
 
 sGPIO green(GreenLedPport,GreenLedPin,1);
 sGPIO yelow(YellowLedPort, YellowLedPin,1);
@@ -48,15 +50,25 @@ Volt outputVolt(OutputVoltPin,55);
 Volt inputVolt(InputVoltPin,65);
 Volt fetDriverVolt(Pin12V,202);
 
-#ifdef ChargeTask
-static void TaskCharger(void *pvParameters); // Main charger task
+#ifdef ChargeT
+static void ChargerTask(void *pvParameters); // Main charger task
 # endif
-#ifdef ComTask
-static void TaskCom(void *pvParameters); // Main communication task
+#ifdef ComT
+static void ComTask(void *pvParameters); // Main communication task
 # endif
-# ifdef TempTask
-static void TaskTemp(void *pvParameters); // Onewire temp task
+# ifdef TempT
+static void TempTask(void *pvParameters); // Onewire temp task
 # endif
+# ifdef AutoChargerT
+static void AutoChargerTask(void *pvParameters); // Onewire temp task
+# endif
+
+static void readAllValues();
+static void setPWM();
+static int Errors();
+static bool OutputAmpInRange();
+static bool noTomeOut(int milliSec);
+
 
 int main()
 {
@@ -66,40 +78,54 @@ int main()
 		yelow.setHigh();
 		debug1.setHigh();
 
-# ifdef ChargeTask
+# ifdef ChargeT
 		xTaskCreate(
-			TaskCharger
-			,  (const portCHAR *)"ChargeTask" // Main charger task
+			ChargerTask
+			,  (const portCHAR *)"ChargerTask" // Main charger task
 			,  145				//
 			,  NULL
 			,  3
 			,  NULL ); //
 # endif
-# ifdef ComTask
+# ifdef ComT
 		xTaskCreate(
-			TaskCom
+			ComTask
 			,  (const portCHAR *)"ComTask" // Main charger task
 			,  118				//
 			,  NULL
 			,  3
 			,  NULL ); //
 # endif
-# ifdef TempTask
+# ifdef TempT
 		xTaskCreate(
-			TaskTemp
-			,  (const portCHAR *)"tempTask" // OneWire task
+			TempTask
+			,  (const portCHAR *)"TempTask" // OneWire task
 			,  120				//
 			,  NULL
 			,  3
 			,  NULL ); //
 # endif
+# ifdef AutoChargerT
+		xTaskCreate(
+			AutoChargerTask
+			,  (const portCHAR *)"AutoChargerTask" // Make the charger autonomous
+			,  40				//
+			,  NULL
+			,  3
+			,  NULL ); //
+# endif
+
+
+
+
 		vTaskStartScheduler();
 		while (1)
 		{
 		}
 }
-# ifdef TempTask
-static void TaskTemp(void *pvParameters) // Main charger task
+
+# ifdef TempT
+static void TempTask(void *pvParameters) // Main charger task
 {
 	(void) pvParameters;
 	uint8_t type_s;
@@ -179,7 +205,8 @@ static void TaskTemp(void *pvParameters) // Main charger task
     }
 }
 # endif
-static void TaskCom(void *pvParameters) // Main charger task
+
+static void ComTask(void *pvParameters) // Main charger task
 {
 	(void) pvParameters;
     for(;;)
@@ -196,54 +223,32 @@ static void TaskCom(void *pvParameters) // Main charger task
 
 }
 
-static void TaskCharger(void *pvParameters) // Main charger task
+static void ChargerTask(void *pvParameters) // Main charger task
 {
+	// This task is always running and is controlling that the charger is doing what the settings is suggesting.
+	// Also controlling that the values is in range (not exceeds the limits of supply, batters or charger).
 	(void) pvParameters;
 
-	vTaskDelay( ( 200 / portTICK_PERIOD_MS ) );		// Wait 200mS before zeroing the current
+	// Maybe check and turn of PWM hear
+	vTaskDelay( ( 200 / portTICK_PERIOD_MS ) );				// Wait 200mS before zeroing the current (need to move to setup)
 	outputCurrent.zeroAmpCallibrate();
-	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
+	vTaskDelay( ( 100 / portTICK_PERIOD_MS ) );
 
-	int8_t AmpOut = 0;
-	int pwm = 0;
+	// Reset the charger
 
-    for(;;)
+    for(;;)													// Ring charger task infinite
     {
-    	if (GlobalDB.rtPage.state == 0)
+//    	if (GlobalDB.rtPage.state == ChargerStateMonitor)	// If charger is in state Monitor
+    	if (Errors() == 0 )										// Check if charger is suppose to run, = no errors
     	{
+    		green.setLow();									// Charger is actively doing something, = green LED on
+    		readAllValues();								// Read all Values, in/out volt, mosfet volt, amp ...
 
-    		green.setLow();
+    		setPWM();										// Find right PWM value, for correct current or volt level
 
-        	GlobalDB.rtPage.mosfetDriverVolt = fetDriverVolt.readVolt();
-        	GlobalDB.rtPage.OutputVolt = outputVolt.readVolt() ;
-        	AmpOut = (int8_t)(outputCurrent.readCurrent()/ 100);
-        	if (AmpOut < 0) AmpOut = 0 - AmpOut;		// Only positive Amp values on this charger.
-        	GlobalDB.rtPage.OutputAmp = AmpOut;
-        	GlobalDB.rtPage.InputVolt = inputVolt.readVolt() ;
-        	GlobalDB.rtPage.InputAmp = (int8_t)(((GlobalDB.rtPage.OutputVolt * GlobalDB.rtPage.OutputAmp) / GlobalDB.rtPage.InputVolt)*1.2);	// estimate input current.
-red.setLow();
-
-//vTaskDelay( ( 50 / portTICK_PERIOD_MS ) );
-
-
-        	// Check for errors (Later)
-        	// Set charge current (with "soft start")
-
+    		//vTaskDelay( ( 50 / portTICK_PERIOD_MS ) );
         	do
         	{
-//        		AmpOut = (int8_t)(outputCurrent.readCurrent()/ 100);
-            	if (AmpOut < 0) AmpOut = 0 - AmpOut;		// Only positive Amp values on this charger.
-            	GlobalDB.rtPage.OutputAmp = AmpOut;
-            	red.setLow();
-            	if ( (AmpOut < GlobalDB.pg1.ChargeAmp) && (pwm < 254) )
-            	{
-        			pwm++;
-                	vTaskDelay( ( 10 / portTICK_PERIOD_MS ) );
-            	}
-        		if ( (AmpOut > GlobalDB.pg1.ChargeAmp) && (pwm > 0x00) )
-        			pwm--;
-        		GlobalDB.rtPage.pw1 = pwm;
-        		MyPWM.setDuty(pwm);
             	vTaskDelay( ( 5 / portTICK_PERIOD_MS ) );
 
 //        	}while (AmpOut != MyMega.pg1.ChargeAmp);        // I_FAST is set now
@@ -269,4 +274,75 @@ red.setLow();
 
 }
 
+static void AutoChargerTask(void *pvParameters) // The task that make the charger autonomous
+{
+	// This task makes the charger work on its own, without outside control. Good for simple battery chargers and when communication with head unit is lost.
+	// Initially used when TunerStudio is used to set charge cycles.
+	(void) pvParameters;
+
+    for(;;)
+    {
+    	// Make the charger work without external input
+    }
+}
+
+
+static void readAllValues()
+{
+	int8_t AmpOut = 0;
+
+	GlobalDB.rtPage.mosfetDriverVolt = fetDriverVolt.readVolt();
+	GlobalDB.rtPage.OutputVolt = outputVolt.readVolt() ;
+	AmpOut = (int8_t)(outputCurrent.readCurrent()/ 100);
+	if (AmpOut < 0) AmpOut = 0 - AmpOut;		// Only positive Amp values on this charger.
+	GlobalDB.rtPage.OutputAmp = AmpOut;
+	GlobalDB.rtPage.InputVolt = inputVolt.readVolt() ;
+	GlobalDB.rtPage.InputAmp = (int8_t)(((GlobalDB.rtPage.OutputVolt * GlobalDB.rtPage.OutputAmp) / GlobalDB.rtPage.InputVolt)*1.2);	// estimate input current.
+
+}
+
+static void setPWM()
+{
+	int mAmpOut = 0;
+	int pwm = 0;
+	red.setLow();											// Charger is finding right PWM value, = red LED on.
+
+	if (GlobalDB.rtPage.state == ChargerStateConstantAmp)	// If charger is in constant current mode
+	{
+		mAmpOut = (outputCurrent.readCurrent());				// AmpOut in A * 10, 1A = 10, one decimal
+		if (mAmpOut < 0) mAmpOut = 0 - mAmpOut;				// Only positive Amp values on this charger.
+		GlobalDB.rtPage.OutputAmp = mAmpOut / 100;			// devide by 100 here to get mA to A / 10 = we only whant Amp with one decimal.
+		red.setLow();										// Trying to find charge current
+		while ( !OutputAmpInRange() and noTomeOut(10))
+		{
+			if ( (mAmpOut < GlobalDB.pg1.ChargeAmp) && (pwm < 254) )
+			{
+				pwm++;
+			}
+			if ( (mAmpOut > GlobalDB.pg1.ChargeAmp) && (pwm > 0x00) )
+			{
+				pwm--;
+			}
+			GlobalDB.rtPage.pw1 = pwm;
+			MyPWM.setDuty(pwm);
+
+			}
+	}
+}
+
+static int Errors()
+{
+	return (0);
+}
+
+static bool OutputAmpInRange()
+{
+	return (0);
+}
+
+static bool noTomeOut(int timeoutms)
+{
+	//if curent ms > startms + timeoutms ....
+	return (0);
+}
 
